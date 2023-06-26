@@ -9,6 +9,8 @@
     "Naive_Agent"     : "node 1_Agents/1_Agent_Naive/main_naive.mjs",
     "BDI_Agent"       : "node 1_Agents/2_Agent_BDI/main_bdi.mjs",
     "BDI_PDDL_Agent"  : "node 1_Agents/3_Agent_BDI_PDDL/main_bdi_pddl.mjs",
+    "MULTI_alpha_Agent"   : "node 1_Agents/4_Multi_Agent/main_alpha.mjs",
+    "MULTI_beta_Agent"    : "node 1_Agents/4_Multi_Agent/main_beta.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
