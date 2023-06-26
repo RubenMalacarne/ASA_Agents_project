@@ -24,6 +24,12 @@ npm run BDI_Agent
 ```bash
 npm run BDI_PDDL_Agent
 ```
+```bash
+npm run MULTI_alpha_Agent
+```
+```bash
+npm run MULTI_beta_Agent
+```
 
 or you can use always:
 
@@ -33,4 +39,4 @@ node /path/file.js
 to run the single file javascript
 
 
-GOOD LUCK and Enjoy the code ;) / XD .
+GOOD LUCK and Enjoy the code ;)
