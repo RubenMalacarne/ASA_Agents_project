@@ -252,11 +252,13 @@ class Planner{
 
         let reachables=[]
         for(let friend of beliefs.getFriendBeliefs().values()){
-            reachables.push(beliefs.city.getAllReachable(
-                {x:friend.x,y:friend.y},
-                {x:friend.x,y:friend.y},
-                enemy_positions
-            ))
+            if(friend.x !== undefined){
+                reachables.push(beliefs.city.getAllReachable(
+                    {x:friend.x,y:friend.y},
+                    {x:friend.x,y:friend.y},
+                    enemy_positions
+                ))
+            }
         }
 
         function isInReachables(x,y){

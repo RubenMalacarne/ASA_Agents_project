@@ -131,51 +131,6 @@ class Agent{
         this.sensing()
         this.share_beliefs()
         this.anti_lock= this.anti_lock+1
-        // for(let friend of this.beliefs.getFriendBeliefs().keys())
-        //     console.log(friend)
-        //console.log(this.beliefs)
-        //this.broadcast_self()
-        switch(this.protocol_status){
-            // executing a plan in multi agent mode
-            case "EXEC-MULTIPLAN":{
-                this.anti_lock=0
-                return this.exec_multiplan();
-            }
-            // executing a plan in single agent mode
-            case "EXEC-SINGLEPLAN":{
-                
-                this.anti_lock=0
-                // if(Math.random()>0.95)
-                //     return this.multicast_finito();
-                // else
-                    return this.exec_singleplan();
-            }
-            // waiting for the intentions of all the allays
-            case "MASTER-PLANNER":{
-                this.anti_lock=0
-                setTimeout(()=>{
-                    this.bdi_control_loop()
-                },1000)
-                return;
-            }
-            // waiting for the master planner to give the multiplan (wait 3 cycle)
-            case "WAITING-MULTIPLAN":{
-                setTimeout(()=>{
-                    this.bdi_control_loop()
-                },500)
-                //if i not recive nothing i continue like single planner
-                if (this.anti_lock>=3) this.protocol_status = "EXEC-SINGLEPLAN"
-                return;
-            }
-            default:{
-                this.multicast_finito()
-            }
-        }
-        /**/
-    }async bdi_control_loop(){
-        this.sensing()
-        this.share_beliefs()
-        this.anti_lock= this.anti_lock+1
         console.log(this.protocol_status)
         // for(let friend of this.beliefs.getFriendBeliefs().keys())
         //     console.log(friend)
@@ -195,15 +150,28 @@ class Agent{
             
             case "MASTER-PLANNER":{
                 setTimeout(()=>{
-                    if (this.anti_lock>=10) this.protocol_status = "EXEC-SINGLEPLAN"
+                    if (this.anti_lock>=40) this.protocol_status = "EXEC-SINGLEPLAN"
                     this.bdi_control_loop()
                 },20)
                 return;
             }
-            
+            case "READY-MULTIPLAN":{
+                let now=new Date().getTime();
+                if(now > this.multiplan_execution_time){
+                    // if the time to execute the multiplan has come, then change status and start multiplan execution
+                    this.protocol_status = "EXEC-MULTIPLAN";
+                    this.bdi_control_loop()
+                }else{
+                    // otherwise wait a few milliseconds and retry
+                    setTimeout(()=>{
+                        this.bdi_control_loop()
+                    },10)
+                }
+                return;
+            }
             case "WAITING-MULTIPLAN":{
                 setTimeout(()=>{
-                 if (this.anti_lock>=10) this.protocol_status = "EXEC-SINGLEPLAN"
+                 if (this.anti_lock>=40) this.protocol_status = "EXEC-SINGLEPLAN"
                     this.bdi_control_loop()
                 },20)
                 //if i not recive nothing i continue like single planner
@@ -365,12 +333,11 @@ class Agent{
             // let's go baby, it's multi planning time
             let intention_map=this.beliefs.getIntentionsMap()
             intention_map.set(this.my_id,this.intentions)
-            
             this.planner.generateMultiPlan(intention_map,this.beliefs,this.parallel_domain).then(
                 ()=>{
                     this.multicast_multiplan(this.planner.serialize_multiplan())
                     this.beliefs.reset_friends()
-                    this.protocol_status="EXEC-MULTIPLAN"
+                    this.protocol_status="READY-MULTIPLAN"
                 }
             )
         }
@@ -389,19 +356,22 @@ class Agent{
      * @param {[{key:string;plan:PlanObject;}]} multiplan
      */
     multicast_multiplan(multiplan){
+        let now = new Date().getTime()
+        this.multiplan_execution_time = now + constants.MULTIPLAN_DELAY;
         for(let friend of this.beliefs.getFriendBeliefs().keys())
-        console.log ("id EEEEEEEEE: ", friend)
-            this.communication.send_plan(friend,multiplan)
+            this.communication.send_plan(friend,multiplan,this.multiplan_execution_time)
     }
 
     /**
      * sets the new multiplan
-     * @param {[{key:string;plan:PlanObject}]} data 
+     * @param {{plan:[{key:string;plan:PlanObject}];timestamp:number;}} data 
      */
     on_multiplan(data){
-        this.planner.deserialize_multiplan(data)
+        console.log(data)
+        this.planner.deserialize_multiplan(data.plan)
+        this.multiplan_execution_time = data.timestamp;
         this.beliefs.reset_friends()
-        this.protocol_status="EXEC-MULTIPLAN"
+        this.protocol_status="READY-MULTIPLAN"
     }
 
     /**

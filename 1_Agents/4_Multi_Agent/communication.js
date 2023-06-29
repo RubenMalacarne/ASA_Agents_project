@@ -85,7 +85,7 @@ class Communication {
                     break; }
 
                 case "plan"         :   {console.log("l'altro agente ha inviato il suo plan")
-                    this.agent.on_multiplan(msg.content.plan)
+                    this.agent.on_multiplan(msg.content)
                     break;}
 
                 default             :   {console.log ("altro")
@@ -221,10 +221,13 @@ class Communication {
      * allow to send the nex move to another agents
      * @send {list of the possible plan}
      */
-    async send_plan (id_friend,plan){
+    async send_plan (id_friend,plan,time_to_exec){
         await this.client.say(id_friend, {
             kind    :   "plan",
-            content:{plan    :   plan}
+            content:{
+                plan    :   plan,
+                timestamp: time_to_exec
+            }
         })
     }
 
