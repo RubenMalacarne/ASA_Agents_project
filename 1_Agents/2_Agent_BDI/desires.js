@@ -28,16 +28,15 @@ class Desires{
     /**
      * This function builds the desires of the agent from its beliefs and intentions
      * @param {Beliefs} beliefs 
-     * @param {Intentions} intentions 
      */
-    constructor(beliefs,intentions){
+    constructor(beliefs){
         let parcels_on_ground=beliefs.getParcelBeliefs().getFreeParcels();
         let bag=beliefs.getParcelBeliefs().getMyBag(beliefs.my_data);
-        //if(bag.length == 0 && parcels_on_ground.length == 0){
+        if(bag.length == 0 && parcels_on_ground.length == 0){
             for(let spot of beliefs.exploration_spots.values()){
                 this.possibilities.push(new Desire(spot.x,spot.y,"go to"))
             }
-        //}
+        }
         for(let parcel of parcels_on_ground){
             this.possibilities.push(new Desire(parcel.x,parcel.y,"pick up",parcel))
         }

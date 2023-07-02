@@ -27,6 +27,12 @@ class Intentions{
      */
     intentions=[]
     /**
+    * A list of the intentions to achieve, sorted in order of
+    * achievement
+    * @type {[Intention]}
+    */
+    old_intentions=[]
+    /**
      * @type {Beliefs}
      */
     beliefs
@@ -39,6 +45,8 @@ class Intentions{
     constructor(beliefs){
         this.beliefs=beliefs
         this.intentions=[]
+        this.old_intentions = []
+        
     }
 
     /**
@@ -78,18 +86,101 @@ class Intentions{
         })
         // compute the score of each intention
         let utilities = intentions_from_desires.map(intention=>{return this.utility(intention,bag_score,bag.length);})
-        // take intention with the highest score
-        let best_utility=Math.max.apply(null,utilities)
-        console.log("filtering")
-        console.log(utilities)
-        console.log(desires.possibilities)
-        for(let i=0;i<intentions_from_desires.length;i++){
-            if(utilities[i] == best_utility){
-                this.intentions.push(intentions_from_desires[i])
-                return;
+
+        let IntentionUtilityMap = intentions_from_desires.map((intention, index) => {
+            return { intention: intention, utility: utilities[index] };
+          });
+        
+        IntentionUtilityMap.sort((a, b) => b.utility - a.utility)
+        console.log("--------------------------------------filtering:")    
+        //if i go in the exploration phase    
+        if (IntentionUtilityMap[0].intention.action == "go to"){
+        // console.log(utilities)
+        // console.log(desires.possibilities)
+        for (let i of IntentionUtilityMap){
+            if (this.hasVisitedPosition(i.intention)) {
+                i.utility = 0
+                }
+        }
+
+        IntentionUtilityMap.sort((a, b) => b.utility - a.utility)
+        console.log ("***********************************")
+        for (let i of IntentionUtilityMap){
+            console.log (i.intention)
+            console.log (i.utility)
+        }
+        console.log ("***********************************")
+        
+        if (! this.hasVisitedPosition(IntentionUtilityMap[0].intention)){
+            console.log("Questa è una nuova posizione.");
+            if (this.old_intentions.length >= (this.beliefs.exploration_spots.size-1)){
+            this.old_intentions.push(IntentionUtilityMap[0].intention)
+            this.old_intentions.shift()
             }
+            else {this.old_intentions.push(IntentionUtilityMap[0].intention)
+            console.log("Hai già visitato questa posizione.")}
+
+
+        }
+        console.log("\ncurrent intention")
+        console.log(IntentionUtilityMap[0].intention)
+        console.log("\nold intention")
+        console.log(this.old_intentions)        
+        this.intentions.push(IntentionUtilityMap[0].intention)
+        console.log("LUNGHEZZA OLD INTENTION_" + this.old_intentions.length)
+        }
+
+        else {
+            //if i go in the pick-up or put_down
+            this.intentions.push(IntentionUtilityMap[0].intention)            
         }
     }
+    
+    
+    /**
+     * @param {Intention} current_int
+     */
+    hasVisitedPosition(current_int){
+       
+        for (let i of this.old_intentions){
+            if (current_int.location.x === i.location.x && current_int.location.y === i.location.y )  return true               
+        }
+            return false
+    }
+       /**
+     * Takes as input a possible intention and associates it with a score
+     * which is a number that represents how much value the intention can give
+     * @param {Intention} option
+     * @param {number} bag_score
+     * @param {number} bag_size
+     * @returns {number}
+     */
+       utility(option,bag_score, bag_size){
+        let me=this.beliefs.my_data
+        if(option.action == "go to"){
+            return manhattan_distance(me,option.location)
+        }
+        if(option.action == "pick up"){
+            let delivery_zones=this.beliefs.city.getDeliverySpots();
+            let parcel = this.beliefs.getParcelBeliefs().getParcelFromId(option.args[0])
+            if(parcel===null)
+                return -1;
+            let parcel_distance = this.beliefs.city.getPath(me,option.location,me,this.beliefs.getAgentBeliefs().getPositionsOfAllAgents()).length
+            return Math.max.apply(null,delivery_zones.map(zone=>{
+                let delivery_distance = this.beliefs.city.getPathIgnoringAgents(parcel,zone).length
+                let travel_distance = delivery_distance + parcel_distance
+                let actual_reward = parcel.reward - delivery_distance 
+                return 100 * (actual_reward + Math.max(bag_score - (bag_size * travel_distance),0))
+            }))
+        }
+        if(option.action == "put down"){
+            let agents_positions=this.beliefs.getAgentBeliefs().getPositionsOfAllAgents()
+            let delivery_distance = this.beliefs.city.getPath(me,option.location,me,agents_positions).length
+            return 100 * (bag_score - (bag_size * delivery_distance))
+        }
+        return 0;
+    }
+
 
     /**
      * This function returns the first intention from the intentions array
@@ -237,39 +328,7 @@ class Intentions{
         return old_best < new_best
     }
 
-    /**
-     * Takes as input a possible intention and associates it with a score
-     * which is a number that represents how much value the intention can give
-     * @param {Intention} option
-     * @param {number} bag_score
-     * @param {number} bag_size
-     * @returns {number}
-     */
-    utility(option,bag_score, bag_size){
-        let me=this.beliefs.my_data
-        if(option.action == "go to"){
-            return manhattan_distance(me,option.location)
-        }
-        if(option.action == "pick up"){
-            let delivery_zones=this.beliefs.city.getDeliverySpots();
-            let parcel = this.beliefs.getParcelBeliefs().getParcelFromId(option.args[0])
-            if(parcel===null)
-                return -1;
-            let parcel_distance = this.beliefs.city.getPath(me,option.location,me,this.beliefs.getAgentBeliefs().getPositionsOfAllAgents()).length
-            return Math.max.apply(null,delivery_zones.map(zone=>{
-                let delivery_distance = this.beliefs.city.getPathIgnoringAgents(parcel,zone).length
-                let travel_distance = delivery_distance + parcel_distance
-                let actual_reward = parcel.reward - delivery_distance 
-                return 100 * (actual_reward + Math.max(bag_score - (bag_size * travel_distance),0))
-            }))
-        }
-        if(option.action == "put down"){
-            let agents_positions=this.beliefs.getAgentBeliefs().getPositionsOfAllAgents()
-            let delivery_distance = this.beliefs.city.getPath(me,option.location,me,agents_positions).length
-            return 100 * (bag_score - (bag_size * delivery_distance))
-        }
-        return 0;
-    }
+ 
 }
 
 export{Intention,Intentions}

@@ -13,7 +13,11 @@
 ```bash
 npm install
 ```
-## 2. Run on your PC, one of the following code
+## 2. update the package
+```bash
+npm update
+```
+## 3. Run on your PC, one of the following code
 
 ```bash
 npm run Naive_Agent

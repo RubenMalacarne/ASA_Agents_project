@@ -2,8 +2,8 @@ const TIME_TO_LOAD=2000 //2 s
 const MEMORY_SIZE_LIMIT=100;
 // maximum numbers of tiles the agent can see from itself
 const VIEW_DISTANCE=4;
-const AGENTS_VIEW_DISTANCE=4;
-const PARCEL_VIEW_DISTANCE=4;
+const AGENTS_VIEW_DISTANCE=50;
+const PARCEL_VIEW_DISTANCE=50;
 // annotation to say that an agent was lost
 const LOST = 'LOST';
 // the available objectives when exploring the map
