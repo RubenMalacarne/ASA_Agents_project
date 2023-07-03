@@ -50,11 +50,11 @@ class Beliefs{
      */
     // the agent believes these are the spots it needs to reach in order to explore the map
     load_exploration_spots(){
-        this.exploration_spots.set("center",this.city.findClosestSpotFromCenter(Math.trunc(this.city.getWidth() /2),Math.trunc(this.city.getHeight() /2)));
-        this.exploration_spots.set("n",this.city.findClosestSpotFromCenter(Math.trunc(this.city.getWidth() /2),Math.trunc(this.city.getHeight() *3/4)));
-        this.exploration_spots.set("s",this.city.findClosestSpotFromCenter(Math.trunc(this.city.getWidth() /2),Math.trunc(this.city.getHeight() /4)));
-        this.exploration_spots.set("w",this.city.findClosestSpotFromCenter(Math.trunc(this.city.getWidth() /4),Math.trunc(this.city.getHeight() /2)));
-        this.exploration_spots.set("e",this.city.findClosestSpotFromCenter(Math.trunc(this.city.getWidth() *3/4),Math.trunc(this.city.getHeight() /2)));
+        // this.exploration_spots.set("center",this.city.findClosestSpotFromCenter(Math.trunc(this.city.getWidth() /2),Math.trunc(this.city.getHeight() /2)));
+        // this.exploration_spots.set("n",this.city.findClosestSpotFromCenter(Math.trunc(this.city.getWidth() /2),Math.trunc(this.city.getHeight() *3/4)));
+        // this.exploration_spots.set("s",this.city.findClosestSpotFromCenter(Math.trunc(this.city.getWidth() /2),Math.trunc(this.city.getHeight() /4)));
+        // this.exploration_spots.set("w",this.city.findClosestSpotFromCenter(Math.trunc(this.city.getWidth() /4),Math.trunc(this.city.getHeight() /2)));
+        // this.exploration_spots.set("e",this.city.findClosestSpotFromCenter(Math.trunc(this.city.getWidth() *3/4),Math.trunc(this.city.getHeight() /2)));
         this.exploration_spots.set("ne",this.city.findClosestSpotFromCenter(Math.trunc(this.city.getWidth() *3/4),Math.trunc(this.city.getHeight() *3/4)));
         this.exploration_spots.set("se",this.city.findClosestSpotFromCenter(Math.trunc(this.city.getWidth() /4),Math.trunc(this.city.getHeight() *3/4)));
         this.exploration_spots.set("nw",this.city.findClosestSpotFromCenter(Math.trunc(this.city.getWidth() *3/4),Math.trunc(this.city.getHeight() /4)));

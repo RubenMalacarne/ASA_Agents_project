@@ -107,8 +107,8 @@ class Plan{
      * @returns {Promise<any>}
      */
     async getPlan(domain){
-        console.log(domain)
-        console.log(this.pddlProblem)
+        // console.log(domain)
+        // console.log(this.pddlProblem)
         return new Promise((res,rej)=> {
             if(this.goal.action==="wait"){
                 this.action_list.push("wait")
@@ -121,13 +121,13 @@ class Plan{
                         console.log("planning error")
                         rej()
                     }else{
-                        console.log(pddlsteps)
+                        //console.log(pddlsteps)
                         this.shortest_path=[];
                         this.action_list=[];
                         for(let step of pddlsteps){
                             this.action_list.push(step.action)
                             if(step.action=="left" || step.action=="right" || step.action=="up" || step.action=="down"){
-                                console.log(step)
+                               // console.log(step)
                                 let next_pos=step.args[2].substring(1)
                                 let pos_split=next_pos.split("y")
                                 let x_coord_string=pos_split[0]

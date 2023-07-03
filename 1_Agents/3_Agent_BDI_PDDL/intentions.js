@@ -39,6 +39,7 @@ class Intentions{
     constructor(beliefs){
         this.beliefs=beliefs
         this.intentions=[]
+        this.old_intentions = []
     }
 
     /**
@@ -78,17 +79,64 @@ class Intentions{
         })
         // compute the score of each intention
         let utilities = intentions_from_desires.map(intention=>{return this.utility(intention,bag_score,bag.length);})
-        // take intention with the highest score
-        let best_utility=Math.max.apply(null,utilities)
-        console.log("filtering")
-        console.log(utilities)
-        console.log(desires.possibilities)
-        for(let i=0;i<intentions_from_desires.length;i++){
-            if(utilities[i] == best_utility){
-                this.intentions.push(intentions_from_desires[i])
-                return;
-            }
+        let IntentionUtilityMap = intentions_from_desires.map((intention, index) => {
+            return { intention: intention, utility: utilities[index] };
+          });
+        
+        IntentionUtilityMap.sort((a, b) => b.utility - a.utility)
+        console.log("--------------------------------------filtering:")    
+        //if i go in the exploration phase    
+        if (IntentionUtilityMap[0].intention.action == "go to"){
+        // console.log(utilities)
+        // console.log(desires.possibilities)
+        for (let i of IntentionUtilityMap){
+            if (this.hasVisitedPosition(i.intention)) {
+                i.utility = 0
+                }
         }
+
+        IntentionUtilityMap.sort((a, b) => b.utility - a.utility)
+        console.log ("***********************************")
+        for (let i of IntentionUtilityMap){
+            console.log (i.intention)
+            console.log (i.utility)
+        }
+        console.log ("***********************************")
+        
+        if (! this.hasVisitedPosition(IntentionUtilityMap[0].intention)){
+            console.log("Questa è una nuova posizione.");
+            if (this.old_intentions.length >= (this.beliefs.exploration_spots.size-1)){
+            this.old_intentions.push(IntentionUtilityMap[0].intention)
+            this.old_intentions.shift()
+            }
+            else {this.old_intentions.push(IntentionUtilityMap[0].intention)
+            console.log("Hai già visitato questa posizione.")}
+
+
+        }
+        console.log("\ncurrent intention")
+        console.log(IntentionUtilityMap[0].intention)
+        console.log("\nold intention")
+        console.log(this.old_intentions)        
+        this.intentions.push(IntentionUtilityMap[0].intention)
+        console.log("LUNGHEZZA OLD INTENTION_" + this.old_intentions.length)
+        }
+
+        else {
+            //if i go in the pick-up or put_down
+            this.intentions.push(IntentionUtilityMap[0].intention)            
+        }
+    }
+
+    /**
+     * @param {Intention} current_int
+     */
+    hasVisitedPosition(current_int){
+       
+        for (let i of this.old_intentions){
+            if (current_int.location.x === i.location.x && current_int.location.y === i.location.y )  return true               
+        }
+            return false
     }
 
     /**

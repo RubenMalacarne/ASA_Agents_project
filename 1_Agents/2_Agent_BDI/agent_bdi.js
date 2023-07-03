@@ -100,7 +100,7 @@ class Agent{
         console.log(this.plan.action_list)
         if(!this.plan.is_empty() && !this.intentions.has_succeeded() && !this.intentions.is_impossible()){
             let action=this.plan.pop_front()
-            //this.client.pickup()
+            this.client.pickup()
             this.execute(action).then((status)=>{
                 if(!status){
                     this.plan=new Plan(this.intentions,this.beliefs)
