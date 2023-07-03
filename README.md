@@ -1,5 +1,5 @@
 # ASA: Project Course
-
+![Fantasmini Agents](images/pacman.jpg)
 * In this Repository you can find the Fantasmino agents that we have implemented during the Course:
     Naive Fantasmino
     BDI Fantasmino
@@ -44,3 +44,4 @@ to run the single file javascript
 
 
 GOOD LUCK and Enjoy the code ;)
+![Fantasmini Agents](images/logo.jpg)
