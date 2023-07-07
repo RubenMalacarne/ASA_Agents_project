@@ -197,7 +197,6 @@ class Agent{
         //console.log(plan.action_list)
         if(!plan.is_empty()){
             let action=plan.pop_front()
-            this.client.pickup()
             this.execute(action).then((status)=>{
                 //console.log("done")
                 if(!status){
@@ -219,7 +218,6 @@ class Agent{
         let plan=this.planner.getMyPlan();
         if(!plan.is_empty() && !this.intentions.has_succeeded(this.beliefs) && !this.intentions.is_impossible(this.beliefs)){
             let action=plan.pop_front()
-            this.client.pickup()
             this.execute(action).then((status)=>{
                 if(!status){
                     this.planner.generateSinglePlan(this.intentions,this.beliefs,this.domain).then(()=>{
