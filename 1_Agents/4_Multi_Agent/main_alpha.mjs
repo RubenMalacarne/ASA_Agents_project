@@ -1,7 +1,7 @@
 import { DeliverooApi } from "@unitn-asa/deliveroo-js-client";
 import * as config from "../../config.js";
 import * as constants from "../../0_Common_Files/constants.js"
-import { Agent } from "./agent.js";
+import { Agent } from "./multi_agent.js";
 import { City_Map } from "../../0_Common_Files/citymap.js";
 
 // load token

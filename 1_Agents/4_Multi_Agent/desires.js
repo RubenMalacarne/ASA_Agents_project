@@ -9,11 +9,11 @@ class Desire{
      * @param {number} y 
      * @param {string} action 
      */
-    constructor(x,y,action,parcel=null){
+    constructor(x,y,action,parcel){
         this.location={x:x,y:y}
         if(action=="pick up" || action=="go to" || action=="put down")
             this.action=action
-        if(this.action=="pick up")
+        if(this.action=="pick up" || action=="go to")
             this.parcel=parcel
     }
 }
@@ -34,8 +34,8 @@ class Desires{
         let parcels_on_ground=beliefs.getParcelBeliefs().getFreeParcels();
         let bag=beliefs.getParcelBeliefs().getMyBagFromId(beliefs.my_data.id);
         //if(bag.length == 0 && parcels_on_ground.length == 0){
-            for(let spot of beliefs.exploration_spots.values()){
-                this.possibilities.push(new Desire(spot.x,spot.y,"go to"))
+            for(let [id,spot] of beliefs.exploration_spots){
+                this.possibilities.push(new Desire(spot.x,spot.y,"go to",{id: id}))
             }
         //}
         for(let parcel of parcels_on_ground){
@@ -43,7 +43,7 @@ class Desires{
         }
         if(bag.length > 0){
             for(let zone of beliefs.city.delivery_spots){
-                this.possibilities.push(new Desire(zone.x,zone.y,"put down"))
+                this.possibilities.push(new Desire(zone.x,zone.y,"put down", null))
             }
         }
     }

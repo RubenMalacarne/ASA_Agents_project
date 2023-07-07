@@ -189,6 +189,26 @@ class City_Map{
 
     /**
      * @param {[{x:number; y:number; is_lost: boolean;}]} agent_positions
+     * @param {[{x:number; y:number;}]} my_position
+     * @returns {[[number]]}
+     */
+    getMaskedPathLayoutStrict(my_position,agent_positions){
+        let copied_layout = JSON.parse(JSON.stringify(this.path_layout));
+        for(let agent of agent_positions){
+            if(agent.x>=this.width || agent.y>=this.height)//ignore agents in unloaded parts of the map
+                continue;
+            if(!agent.lost)
+                copied_layout[agent.x][agent.y]=0;
+            else{
+                // metric to decide about forgetting about a far away believed agent
+                    copied_layout[agent.x][agent.y]=0;
+            }
+        }
+        return copied_layout
+    }
+
+    /**
+     * @param {[{x:number; y:number; is_lost: boolean;}]} agent_positions
      * @returns {[[number]]}
      */
     getLogicalLayoutWithAgents(agent_positions){
@@ -364,6 +384,15 @@ class City_Map{
     getPath(start,end,my_position,agent_positions){
      
         let map=this.getMaskedPathLayout(my_position,agent_positions);
+        let graph=new Graph(map);
+        let starting_pos=graph.grid[start.x][start.y]
+        let ending_pos=graph.grid[end.x][end.y]
+        return astar.search(graph,starting_pos,ending_pos)
+    }
+
+    getPathStrict(start,end,my_position,agent_positions){
+     
+        let map=this.getMaskedPathLayoutStrict(my_position,agent_positions);
         let graph=new Graph(map);
         let starting_pos=graph.grid[start.x][start.y]
         let ending_pos=graph.grid[end.x][end.y]

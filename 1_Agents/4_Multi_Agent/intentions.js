@@ -68,7 +68,7 @@ class Intentions{
                 return new Intention(desire.location.x,desire.location.y,"put down",[])
             }
             if(desire.action=="go to"){
-                return new Intention(desire.location.x,desire.location.y,"go to",[])
+                return new Intention(desire.location.x,desire.location.y,"go to",[desire.parcel.id])
             }
             return new Intention(me.x,me.y,"go to",[])
         })
@@ -251,7 +251,14 @@ class Intentions{
     utility(option,bag_score, bag_size, beliefs){
         let me=beliefs.my_data
         if(option.action == "go to"){
-            return Math.ceil(Math.random() * 10);
+            let now = new Date().getTime()
+            let distance = beliefs.city.getPathIgnoringAgents(beliefs.my_data,option.location).length
+            if(option.args.length==0)
+                return 0;
+            let spot_id = option.args[0];
+            let last_seen = beliefs.exploration_spots.get(spot_id).last_seen;
+            // utility is given by the number of seconds of age of the last_seen parameter
+            return (now - last_seen) / 1000 + distance / 10;
         }
         if(option.action == "pick up"){
             let delivery_zones=beliefs.city.getDeliverySpots();
@@ -263,7 +270,7 @@ class Intentions{
                 let delivery_distance = beliefs.city.getPathIgnoringAgents(parcel,zone).length
                 let travel_distance = delivery_distance + parcel_distance
                 let actual_reward = parcel.reward - Math.floor(travel_distance * constants.PARCEL_DECAY_RATE)
-                return 10 * (actual_reward + Math.max(bag_score - (bag_size * Math.floor(travel_distance * constants.PARCEL_DECAY_RATE)),0))
+                return 40 * (actual_reward + Math.max(bag_score - (bag_size * Math.floor(travel_distance * constants.PARCEL_DECAY_RATE)),0))
             })
             let best=delivery_zone_score[0]
             for(let val of delivery_zone_score){
@@ -276,8 +283,8 @@ class Intentions{
             let agents_positions=beliefs.getPositionOfEnemyAgents()
             let delivery_distance = beliefs.city.getPath(me,option.location,me,agents_positions).length
             if(constants.PARCEL_DECAY_RATE==0)
-                return 20 * (bag_score - bag_size )
-            return 20 * (bag_score - (bag_size * Math.floor(delivery_distance * constants.PARCEL_DECAY_RATE)))
+                return 90 * (bag_score - bag_size )
+            return 90 * (bag_score - (bag_size * Math.floor(delivery_distance * constants.PARCEL_DECAY_RATE)))
         }
         return 0;
     }

@@ -237,6 +237,7 @@ class Communication {
      * @send {position target (x,y)}
      */
     async send_intentions(id_friend){
+        //console.log(this.agent.intentions.intentions)
         await this.client.say(id_friend, {
             kind   :   "send_intentions",
             content  : {  intentions: this.agent.intentions}

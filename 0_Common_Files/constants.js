@@ -1,9 +1,9 @@
 const TIME_TO_LOAD=2000 //2 s
 const MEMORY_SIZE_LIMIT=100;
 // maximum numbers of tiles the agent can see from itself
-const VIEW_DISTANCE=4;
-const AGENTS_VIEW_DISTANCE=50;
-const PARCEL_VIEW_DISTANCE=50;
+const VIEW_DISTANCE=7;
+const AGENTS_VIEW_DISTANCE=7;
+const PARCEL_VIEW_DISTANCE=7;
 // annotation to say that an agent was lost
 const LOST = 'LOST';
 // the available objectives when exploring the map
@@ -12,7 +12,7 @@ const EXPLORATION_OBJECTIVES=["center","n","s","e","w","ne","nw","se","sw"]
 const SERVER_CLOCK_MILLISECONDS=50;
 const PARCEL_DECAY_TIME_MILLISECONDS=1000;
 const PARCEL_DECAY_RATE=SERVER_CLOCK_MILLISECONDS/PARCEL_DECAY_TIME_MILLISECONDS;
-const TIME_FOR_ONE_ACTION=SERVER_CLOCK_MILLISECONDS;
+const TIME_FOR_ONE_ACTION=SERVER_CLOCK_MILLISECONDS*4;
 
 const MULTIPLAN_DELAY = 1000;
 // Friend client ID

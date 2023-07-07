@@ -131,6 +131,7 @@ class Agent{
         this.sensing()
         this.share_beliefs()
         this.anti_lock= this.anti_lock+1
+        console.log("_________________ STATUS ______________________")
         console.log(this.protocol_status)
         // for(let friend of this.beliefs.getFriendBeliefs().keys())
         //     console.log(friend)
@@ -150,12 +151,13 @@ class Agent{
             
             case "MASTER-PLANNER":{
                 setTimeout(()=>{
-                    if (this.anti_lock>=40) this.protocol_status = "EXEC-SINGLEPLAN"
+                    if (this.anti_lock>=80) this.protocol_status = "EXEC-SINGLEPLAN"
                     this.bdi_control_loop()
                 },20)
                 return;
             }
             case "READY-MULTIPLAN":{
+                this.anti_lock=0;
                 let now=new Date().getTime();
                 if(now > this.multiplan_execution_time){
                     // if the time to execute the multiplan has come, then change status and start multiplan execution
@@ -171,7 +173,8 @@ class Agent{
             }
             case "WAITING-MULTIPLAN":{
                 setTimeout(()=>{
-                 if (this.anti_lock>=40) this.protocol_status = "EXEC-SINGLEPLAN"
+                    if (this.anti_lock>=80) 
+                        this.protocol_status = "EXEC-SINGLEPLAN"
                     this.bdi_control_loop()
                 },20)
                 //if i not recive nothing i continue like single planner
@@ -189,10 +192,12 @@ class Agent{
      */
     exec_multiplan(){
         console.log ("\n-----------EXEC-MULTIPLAN")
+        this.planner.print_my_plan();
         let plan=this.planner.getMyPlan();
         //console.log(plan.action_list)
         if(!plan.is_empty()){
             let action=plan.pop_front()
+            this.client.pickup()
             this.execute(action).then((status)=>{
                 //console.log("done")
                 if(!status){
@@ -214,6 +219,7 @@ class Agent{
         let plan=this.planner.getMyPlan();
         if(!plan.is_empty() && !this.intentions.has_succeeded(this.beliefs) && !this.intentions.is_impossible(this.beliefs)){
             let action=plan.pop_front()
+            this.client.pickup()
             this.execute(action).then((status)=>{
                 if(!status){
                     this.planner.generateSinglePlan(this.intentions,this.beliefs,this.domain).then(()=>{
@@ -310,11 +316,11 @@ class Agent{
      * @param {string} from_id 
      */
     on_finito(from_id){
-        this.protocol_status="WAITING-MULTIPLAN"
         this.beliefs.on_finito(from_id)
         this.planner.delete_plan(from_id)
         // If I get the last "finito" from my friends and I have already exited the multiplan stage, then I have to reply with my intentions 
         if(this.protocol_status!=="EXEC-MULTIPLAN" && this.beliefs.everyone_sent_finito()){
+            this.protocol_status="WAITING-MULTIPLAN"
             let desires=new Desires(this.beliefs,this.intentions)
             this.intentions.filter(this.beliefs,desires)
             this.communication.send_intentions(from_id)
@@ -367,7 +373,11 @@ class Agent{
      * @param {{plan:[{key:string;plan:PlanObject}];timestamp:number;}} data 
      */
     on_multiplan(data){
-        console.log(data)
+        console.log("received this plan")
+        for(let x of data.plan){
+            console.log(x.key)
+            console.log(x.plan.action_list)
+        }
         this.planner.deserialize_multiplan(data.plan)
         this.multiplan_execution_time = data.timestamp;
         this.beliefs.reset_friends()
@@ -391,7 +401,7 @@ class Agent{
                     if(!movement_status)
                         res(movement_status)
                     else{
-                        this.client.pickup().then((_pickup_status)=>{
+                        //this.client.pickup().then((_pickup_status)=>{
                             /*if(this.beliefs.city.getDeliverySpots().includes({x:this.beliefs.my_data.x,y:this.beliefs.my_data.y})){
                                 this.client.putdown().then((_putdown_status)=>{
                                     res(movement_status)
@@ -400,7 +410,7 @@ class Agent{
                                 res(movement_status)
                             }*/
                             res(movement_status)
-                        })
+                        //})
                     }
                 }).catch(()=>{
                     res(false)

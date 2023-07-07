@@ -228,7 +228,17 @@ class Planner{
      * @param {string} domain
      */
     async generateMultiPlan(team_intentions,beliefs,domain){
-        
+        return this.generateMultiPlanGraphSearch(team_intentions,beliefs)
+        //return this.generateMultiPlanPDDL(team_intentions,beliefs,domain)
+    }
+
+    /**
+     * This function builds the plan to be followed using PDDL online solver
+     * @param {Map<string,Intentions>} team_intentions
+     * @param {Beliefs} beliefs
+     * @param {string} domain
+     */
+    async generateMultiPlanPDDL(team_intentions,beliefs,domain){
         let agents_positions=beliefs.getPositionOfAllAgents()
         let enemy_positions=beliefs.getPositionOfEnemyAgents()
 
@@ -325,102 +335,11 @@ class Planner{
             }
         }
 
-        /** @param {Map<string,{intention:Intention;utility:number;}>} intention_choice*/
-        function find_conflicts(intention_choice){
-            for(let [id1,i1] of intention_choice){
-                for(let [id2,i2] of intention_choice){
-                    if(id1==id2)
-                        continue;
-                    /** @type {Intention} */
-                    let intention1=i1.intention
-                    /** @type {Intention} */
-                    let intention2=i2.intention
-                    //console.log("i1 of "+id1+" is",i1)
-                    //console.log("i2 of "+id2+" is",i2)
-                    if(intention1.action !== intention2.action)
-                        continue;
-                    if(intention1.action==="pick up"){
-                        let x1=intention1.location.x
-                        let y1=intention1.location.y
-                        let x2=intention2.location.x
-                        let y2=intention2.location.y
-                        if(x1==x2 && y1==y2)
-                            return {id1:id1,id2:id2};
-                    }
-                }    
-            }
-            return null;
-        }
-
-        /*console.log("------------------------AGENT INTENTIONS-----------------------------")
-        for(let  [id,i] of team_intentions){
-            console.log("INTENTIONS of "+id)
-            console.log("Is array? ",Array.isArray(i.intentions))
-            for(let x of i.intentions){
-                console.log(x)
-            }
-        }
-        console.log("-----------------------DONE AI----------------------------")*/
-
-        /** @type {Map<string,{intention:Intention;utility:number;list_id:number;}>} */
-        let intention_choice=new Map()
-        for(let [id,i] of team_intentions){
-            let new_intention=new Intention(
-                i.intentions[0].location.x,
-                i.intentions[0].location.y,
-                i.intentions[0].action,
-                i.intentions[0].args
-            )
-            intention_choice.set(id,{
-                intention: new_intention,
-                utility: i.intentions[0].utility,
-                list_id: 0
-            })
-        }
-
-        /*console.log("------------------------INTENTIONS CHOICE-----------------------------")
-        for(let  [id,i] of intention_choice){
-            console.log("INTENTION choice of "+id)
-            console.log(i.intention)
-            console.log(i.utility)
-            console.log(i.list_id)
-        }
-        console.log("-----------------------DONE IC----------------------------")*/
-
-        let conflict=find_conflicts(intention_choice);
-        while(conflict!==null){
-            // fix conflict
-            let choice_to_change=intention_choice.get(conflict.id2)
-            let id_to_change=conflict.id2
-            if(intention_choice.get(conflict.id1).utility < intention_choice.get(conflict.id2).utility){
-                choice_to_change=intention_choice.get(conflict.id1)
-                id_to_change=conflict.id1
-            }
-            let new_id=choice_to_change.list_id+1
-            if(new_id<team_intentions.get(id_to_change).intentions.length){
-                /*intention_to_change.intention=team_intentions.get(id_to_change).intentions[intention_to_change.list_id].intention
-                intention_to_change.utility=team_intentions.get(id_to_change).intentions[intention_to_change.list_id].utility */ 
-                let intentions=team_intentions.get(id_to_change)
-                let new_intention_data=intentions.intentions[new_id];
-                let new_intention=new Intention(
-                    new_intention_data.location.x,
-                    new_intention_data.location.y,
-                    new_intention_data.action,
-                    new_intention_data.args
-                )
-                let new_choice={
-                    intention: new_intention,
-                    utility: new_intention_data.utility,
-                    list_id: new_id
-                }
-                intention_choice.set(id_to_change,new_choice)
-            }else{
-                team_intentions.delete(id_to_change)
-            }
-            conflict=find_conflicts(intention_choice)
-        }
-
+        let intention_choice = this.choose_intentions(team_intentions);
         
+        /*for(let [id,choice] of intention_choice)
+            console.log(choice)*/
+
         let plan_objectives="and "
         // convert intention_choice to PDDL goal
         for(let [id,choice] of intention_choice){
@@ -556,6 +475,468 @@ class Planner{
                 res()
             })
         });
+    }
+
+    /**
+     * This function builds the plan to be followed using graph algorithms
+     * @param {Map<string,Intentions>} team_intentions
+     * @param {Beliefs} beliefs
+     * @param {string} domain
+     */
+    async generateMultiPlanGraphSearch(team_intentions,beliefs,domain){
+        let agents_positions=beliefs.getPositionOfAllAgents()
+        let enemy_positions=beliefs.getPositionOfEnemyAgents()
+
+        let friends = []
+        for(let f of beliefs.getFriendBeliefs().keys()){
+            friends.push(f)
+        }
+
+        let friend_position=[]
+        for(let f of beliefs.getFriendBeliefs().values()){
+            friend_position.push({x:f.x,y:f.y})
+        }
+
+        let intention_choice = this.choose_intentions(team_intentions);
+        /** @type {Map<string,[{x:number;y:number;}]>} */
+        let paths=new Map()
+        for(let [id,data] of intention_choice){
+            let goal = data.intention;
+            let end = {x:goal.location.x, y: goal.location.y};
+            let start;
+            if(beliefs.my_data.id === id){
+                start = {x: beliefs.my_data.x, y:beliefs.my_data.y};
+            }else{
+                let friend = beliefs.getFriendBeliefs().get(id)
+                start = {x: friend.x, y: friend.y};
+            }
+            let astar_path = beliefs.city.getPath(start,end,start,enemy_positions) 
+            let xy_path = astar_path.map(pos => {
+                return {x:pos.x, y:pos.y}
+            })
+            xy_path=[start].concat(xy_path)
+            paths.set(id,xy_path);
+        }
+        
+        /*for(let [id,path]  of paths)
+            console.log(path)*/
+
+
+        friends.push(beliefs.my_data.id)
+        let done=false
+        for(let step=0;step<40;step+=1){
+            for(let f1 of friends){
+                for(let f2 of friends){
+                    if(f1 !== f2){
+                        console.log("ANALYSIS________________________________________________________")
+                        let first_path = paths.get(f1);
+                       
+                        let first_start
+                        if(f1 == beliefs.my_data.id){
+                            first_start = {x: beliefs.my_data.x, y: beliefs.my_data.y};
+                        }else{
+                            let first_friend = beliefs.getFriendBeliefs().get(f1);
+                            first_start = {x: first_friend.x, y: first_friend.y};
+                        }
+                        let second_path = paths.get(f2);
+                        let second_start
+                        if(f2 == beliefs.my_data.id){
+                            second_start = {x: beliefs.my_data.x, y: beliefs.my_data.y};
+                        }else{
+                            let second_friend = beliefs.getFriendBeliefs().get(f2);
+                            second_start = {x: second_friend.x, y: second_friend.y};
+                        }
+                        let first_end;
+                        let second_end;
+                        if(step >= first_path.length){
+                            if(first_path.length == 0){
+                                first_end = first_start
+                            }else{
+                                first_end = {x: first_path[first_path.length - 1].x, y:first_path[first_path.length - 1].y}
+                            }
+                        }else{
+                            first_end = {x: first_path[step].x, y:first_path[step].y}
+                        }
+                        if(step >= second_path.length){
+                            if(second_path.length == 0){
+                                second_end = second_start
+                            }else{
+                                second_end = {x: second_path[second_path.length - 1].x, y: second_path[second_path.length - 1].y}
+                            }
+                        }else{
+                            second_end = {x: second_path[step].x, y: second_path[step].y}
+                        }
+                        let int1 = intention_choice.get(f1);
+                        let int2 = intention_choice.get(f2);
+                        let first_lonely_path = beliefs.city.getPathStrict(first_start,first_end,first_start,friend_position).map(pos=>{return {x:pos.x,y:pos.y}})
+                        let second_lonely_path = beliefs.city.getPathStrict(second_start,second_end,second_start,friend_position).map(pos=>{return {x:pos.x,y:pos.y}})
+
+                        if(int1.intention.action=="put down" && int2.intention.action=="put down"){
+                            // let one fail and one succeed
+                            done=true
+                            break;
+                        }if(first_path.length>1 && first_lonely_path.length<=1 && int1.intention.action=="put down"){
+                            console.log("DISTANCE IS ________________________________")
+                            console.log(manhattan_distance(first_start,second_start))
+                            if(manhattan_distance(first_start,second_start)>1){
+                                let first_to_second_path = beliefs.city.getPath(first_start,second_start,first_start,enemy_positions)
+                                first_to_second_path=first_to_second_path.map(pos=>{return {x:pos.x,y:pos.y}})
+                                //console.log(first_to_second_path)
+                                first_to_second_path = [first_start].concat(first_to_second_path)
+                                let new_first_path = []
+                                let new_second_path = []
+                                let times_to_move = Math.floor(first_to_second_path.length/2)
+                                for(let i=0;i<times_to_move;i+=1){
+                                    new_first_path.push(first_to_second_path[i])
+                                    new_second_path.push(first_to_second_path[first_to_second_path.length-1-i])
+                                }
+                                console.log(new_first_path)
+                                console.log(new_second_path)
+                                if(first_to_second_path.length % 2 != 0){
+                                    new_first_path.push(first_to_second_path[times_to_move])
+                                    new_second_path.push("wait")
+                                    new_second_path.push("wait")
+                                    times_to_move+=1
+                                }
+                                new_first_path.push("put down")  
+                                new_first_path.push(new_first_path[times_to_move-2])
+                                new_first_path.push("wait")
+                                new_first_path.push("wait")
+                                new_first_path.push("wait")
+                                new_first_path.push("wait")
+                                new_second_path.push("wait")
+                                new_second_path.push("wait")
+                                new_second_path.push(new_first_path[times_to_move-1]) 
+                                new_second_path.push("pick up")
+                                console.log(new_first_path)
+                                console.log(new_second_path)
+                                paths.set(f1,new_first_path)
+                                paths.set(f2,new_second_path)
+                            }else{
+                                let zerozero=beliefs.exploration_spots.get("00")
+                                let fourfour=beliefs.exploration_spots.get("44")
+                                //console.log("DISTANCES")
+                                //console.log(manhattan_distance(first_start,zerozero))
+                                //console.log(manhattan_distance(second_start,zerozero))
+                                if(manhattan_distance(first_start,zerozero)>manhattan_distance(second_start,zerozero)){
+                                    let new_first_path=beliefs.city.getPath(first_start,zerozero,first_start,enemy_positions).map(pos=>{return {x:pos.x,y:pos.y}})
+                                    new_first_path=[first_start].concat(new_first_path)
+                                    let new_second_path=beliefs.city.getPath(second_start,fourfour,second_start,enemy_positions).map(pos=>{return {x:pos.x,y:pos.y}})
+                                    new_second_path=[second_start].concat(new_second_path)
+                                    paths.set(f1,new_first_path)
+                                    paths.set(f2,new_second_path)
+                                }else{
+                                    let new_first_path=beliefs.city.getPath(first_start,fourfour,first_start,enemy_positions).map(pos=>{return {x:pos.x,y:pos.y}})
+                                    new_first_path=[first_start].concat(new_first_path)
+                                    let new_second_path=beliefs.city.getPath(second_start,zerozero,second_start,enemy_positions).map(pos=>{return {x:pos.x,y:pos.y}})
+                                    new_second_path=[second_start].concat(new_second_path)
+                                    paths.set(f1,new_first_path)
+                                    paths.set(f2,new_second_path)
+                                }
+                            }
+                            done=true;
+                            break;
+                        }
+                        else if(second_path.length>1 && second_lonely_path.length<=1 && int2.intention.action=="put down"){
+                            console.log("DISTANCE IS ________________________________")
+                            console.log(manhattan_distance(first_start,second_start))
+                            if(manhattan_distance(first_start,second_start)>1){
+                                let second_to_first_path = beliefs.city.getPathStrict(second_start,first_start,second_start,enemy_positions)
+                                second_to_first_path=second_to_first_path.map(pos=>{return {x:pos.x,y:pos.y}})
+                                //console.log(second_to_first_path)
+                                second_to_first_path = [second_start].concat(second_to_first_path)
+                                let new_first_path = []
+                                let new_second_path = []
+                                let times_to_move = Math.floor(second_to_first_path.length/2)
+                                console.log("Paths")
+                                for(let i=0;i<times_to_move;i+=1){
+                                    new_second_path.push(second_to_first_path[i])
+                                    new_first_path.push(second_to_first_path[second_to_first_path.length-1-i])
+                                }
+                                console.log(new_first_path)
+                                console.log(new_second_path)
+                                if(second_to_first_path.length % 2 != 0){
+                                    new_second_path.push(second_to_first_path[times_to_move])
+                                    new_first_path.push("wait")
+                                    new_first_path.push("wait")
+                                    times_to_move+=1
+                                }
+                                new_second_path.push("put down")  
+                                new_second_path.push(new_second_path[times_to_move-2])
+                                new_second_path.push("wait")
+                                new_second_path.push("wait")
+                                new_second_path.push("wait")
+                                new_second_path.push("wait")
+                                new_first_path.push("wait")
+                                new_first_path.push("wait")
+                                new_first_path.push(new_second_path[times_to_move-1]) 
+                                new_first_path.push("pick up")
+                                //console.log(new_first_path)
+                                //console.log(new_second_path)
+                                paths.set(f1,new_first_path)
+                                paths.set(f2,new_second_path)
+                            }else{
+                                let zerozero=beliefs.exploration_spots.get("00")
+                                let fourfour=beliefs.exploration_spots.get("44")
+                                //console.log("DISTANCES")
+                                //console.log(manhattan_distance(first_start,zerozero))
+                                //console.log(manhattan_distance(second_start,zerozero))
+                                if(manhattan_distance(first_start,zerozero)>manhattan_distance(second_start,zerozero)){
+                                    let new_first_path=beliefs.city.getPath(first_start,zerozero,first_start,enemy_positions).map(pos=>{return {x:pos.x,y:pos.y}})
+                                    new_first_path=[first_start].concat(new_first_path)
+                                    let new_second_path=beliefs.city.getPath(second_start,fourfour,second_start,enemy_positions).map(pos=>{return {x:pos.x,y:pos.y}})
+                                    new_second_path=[second_start].concat(new_second_path)
+                                    paths.set(f1,new_first_path)
+                                    paths.set(f2,new_second_path)
+                                }else{
+                                    let new_first_path=beliefs.city.getPath(first_start,fourfour,first_start,enemy_positions).map(pos=>{return {x:pos.x,y:pos.y}})
+                                    new_first_path=[first_start].concat(new_first_path)
+                                    let new_second_path=beliefs.city.getPath(second_start,zerozero,second_start,enemy_positions).map(pos=>{return {x:pos.x,y:pos.y}})
+                                    new_second_path=[second_start].concat(new_second_path)
+                                    paths.set(f1,new_first_path)
+                                    paths.set(f2,new_second_path)
+                                }
+                            }
+                            done=true;
+                            break;
+                        }
+                        //type1 X -> O <- Y
+                        else if(second_end.x == first_end.x && second_end.y == first_end.y){
+                            //let them fail
+                            done = true;
+                            break;
+                        }else{
+                            //type2 X -> Y && X <- Y
+                            if(first_start.x==second_end.x && first_start.y==second_end.y && first_end.x==second_start.x && first_end.y==second_start.y){
+                                
+                                //trade
+                                if(int1.intention.action == "put down" || int2.intention.action == "put down"){
+                                    intention_choice.set(f1,int2);
+                                    intention_choice.set(f2,int1);
+                                    let new_path_first=[]
+                                    let new_path_second=[]
+                                    for(let i=0;i<step;i++){
+                                        new_path_first.push(first_path[i])
+                                        new_path_second.push(second_path[i])
+                                    }
+                                    if(int1.intention.action == "put down"){// f1 gives to f2
+                                        new_path_first.push("put down");
+                                        let new_first_end = {x: int2.location.x, y:int2.location.y};
+                                        let first_astar_path = beliefs.city.getPath(first_start,new_first_end,first_start,enemy_positions);
+                                        let first_xy_path=first_astar_path.map(pos =>{
+                                            return {x:pos.x, y:pos.y};
+                                        })
+                                        for(let pos of first_xy_path){
+                                            new_path_first.push(pos)
+                                        }
+                                        new_path_second.push("wait")
+                                        new_path_second.push(first_start)
+                                        new_path_second.push("pick up")
+                                        let new_second_end = {x: int1.location.x, y:int1.location.y};
+                                        let second_astar_path = beliefs.city.getPath(first_start,new_second_end,first_start,enemy_positions);
+                                        let second_xy_path=second_astar_path.map(pos =>{
+                                            return {x:pos.x, y:pos.y};
+                                        })
+                                        for(let pos of second_xy_path){
+                                            new_path_second.push(pos)
+                                        }
+                                        paths.set(f1,new_path_first)
+                                        paths.set(f2,new_path_second)
+                                    }else{ // f2 gives to f1
+                                        new_path_second.push("put down");
+                                        let b_new_second_end = {x: int1.location.x, y:int1.location.y};
+                                        let b_second_astar_path = beliefs.city.getPath(second_start,b_new_second_end,second_start,enemy_positions);
+                                        let b_second_xy_path=b_second_astar_path.map(pos =>{
+                                            return {x:pos.x, y:pos.y};
+                                        })
+                                        for(let pos of b_second_xy_path){
+                                            new_path_second.push(pos)
+                                        }
+                                        new_path_first.push("wait")
+                                        new_path_first.push(second_start)
+                                        new_path_first.push("pick up")
+                                        let b_new_first_end = {x: int1.location.x, y:int1.location.y};
+                                        let b_first_astar_path = beliefs.city.getPath(second_start,b_new_first_end,second_start,enemy_positions);
+                                        let b_first_xy_path=b_first_astar_path.map(pos =>{
+                                            return {x:pos.x, y:pos.y};
+                                        })
+                                        for(let pos of b_first_xy_path){
+                                            new_path_first.push(pos)
+                                        }
+                                        paths.set(f1,new_path_first)
+                                        paths.set(f2,new_path_second)
+                                    }
+                                }else{
+                                    //only trade paths and intentions
+                                    intention_choice.set(f1,int2);
+                                    intention_choice.set(f2,int1);
+                                    let m=new Map()
+                                    m.set(f1,int2)
+                                    m.set(f2,int1)
+                                    for(let [id,data] of m){
+                                        let goal = data.intention;
+                                        let end = {x:goal.location.x, y: goal.location.y};
+                                        let start;
+                                        if(beliefs.my_data.id === id){
+                                            start = {x: beliefs.my_data.x, y:beliefs.my_data.y};
+                                        }else{
+                                            let friend = beliefs.getFriendBeliefs().get(id)
+                                            start = {x: friend.x, y: friend.y};
+                                        }
+                                        let astar_path = beliefs.city.getPath(start,end,start,enemy_positions) 
+                                        let xy_path = astar_path.map(pos => {
+                                            return {x:pos.x, y:pos.y}
+                                        })
+                                        paths.set(id,xy_path);
+                                    }
+                                }
+                                
+                            }
+                            done = true;
+                            break;
+                        }
+                    }
+                }
+                if(done)
+                    break;
+            }
+            if(done)
+                break;
+        }
+
+        let multiplan = new MultiPlan()
+        
+        for(let [id,path] of paths){
+            //console.log(id)
+            //console.log(path)
+            let start
+            let shortest_path=[]
+            let actions=[]
+            let first_coord_found=false
+            for(let step of path){
+                if(step===undefined){
+                    continue;
+                }else if(step == "pick up"){
+                    actions.push("pick_up")
+                }else if(step == "put down"){
+                    actions.push("put_down")
+                }else if(step == "wait"){
+                    actions.push("wait")
+                }else{
+                    if(!first_coord_found){
+                        start=step
+                        shortest_path.push(step)
+                        first_coord_found=true
+                    }else{
+                        let direction=this.get_direction(start,step);
+                        actions.push(direction)
+                        shortest_path.push(step)
+                        start = step;
+                    }
+                }
+            }
+
+            let intention = intention_choice.get(id)
+            if(intention.intention.action == "pick up")
+                actions.push("pick_up")
+            if(intention.intention.action == "put down")
+                actions.push("put_down")
+
+            //console.log(shortest_path)
+            //console.log(actions)
+            //console.log(intention)
+
+            let plan=new PlanObject(actions,shortest_path);
+            multiplan.addPlan(id,plan)
+        }
+
+        this.plans=multiplan
+        return new Promise((res,rej) => {
+            res()
+        })
+    }
+
+    /**
+     * choose the best intention for each agent avoiding conflicts
+     * @param {Map<string,Intentions>} team_intentions
+     * @returns {Map<string, {intention: Intention;utility: number;list_id: number;}>} 
+     */
+    choose_intentions(team_intentions){
+        /** @param {Map<string,{intention:Intention;utility:number;}>} intention_choice*/
+        function find_conflicts(intention_choice){
+            for(let [id1,i1] of intention_choice){
+                for(let [id2,i2] of intention_choice){
+                    if(id1==id2)
+                        continue;
+                    /** @type {Intention} */
+                    let intention1=i1.intention
+                    /** @type {Intention} */
+                    let intention2=i2.intention
+                    //console.log("i1 of "+id1+" is",i1)
+                    //console.log("i2 of "+id2+" is",i2)
+                    if(intention1.action !== intention2.action)
+                        continue;
+                    if(intention1.action==="pick up"){
+                        let x1=intention1.location.x
+                        let y1=intention1.location.y
+                        let x2=intention2.location.x
+                        let y2=intention2.location.y
+                        if(x1==x2 && y1==y2)
+                            return {id1:id1,id2:id2};
+                    }
+                }    
+            }
+            return null;
+        }
+
+        /** @type {Map<string,{intention:Intention;utility:number;list_id:number;}>} */
+        let intention_choice=new Map()
+        for(let [id,i] of team_intentions){
+            let new_intention=new Intention(
+                i.intentions[0].location.x,
+                i.intentions[0].location.y,
+                i.intentions[0].action,
+                i.intentions[0].args
+            )
+            intention_choice.set(id,{
+                intention: new_intention,
+                utility: i.intentions[0].utility,
+                list_id: 0
+            })
+        }
+
+        let conflict=find_conflicts(intention_choice);
+        while(conflict!==null){
+            // fix conflict
+            let choice_to_change=intention_choice.get(conflict.id2)
+            let id_to_change=conflict.id2
+            if(intention_choice.get(conflict.id1).utility < intention_choice.get(conflict.id2).utility){
+                choice_to_change=intention_choice.get(conflict.id1)
+                id_to_change=conflict.id1
+            }
+            let new_id=choice_to_change.list_id+1
+            if(new_id<team_intentions.get(id_to_change).intentions.length){
+                let intentions=team_intentions.get(id_to_change)
+                let new_intention_data=intentions.intentions[new_id];
+                let new_intention=new Intention(
+                    new_intention_data.location.x,
+                    new_intention_data.location.y,
+                    new_intention_data.action,
+                    new_intention_data.args
+                )
+                let new_choice={
+                    intention: new_intention,
+                    utility: new_intention_data.utility,
+                    list_id: new_id
+                }
+                intention_choice.set(id_to_change,new_choice)
+            }else{
+                team_intentions.delete(id_to_change)
+            }
+            conflict=find_conflicts(intention_choice)
+        }
+
+        return intention_choice;
     }
 
     /**
@@ -793,6 +1174,12 @@ class Planner{
         for(let entry of data){
             this.plans.addPlan(entry.key,new PlanObject(entry.plan.action_list,entry.plan.shortest_path))
         }
+    }
+
+    
+    print_my_plan(){
+        let my_plan=this.getMyPlan()
+        console.log(my_plan.action_list)
     }
 }
 

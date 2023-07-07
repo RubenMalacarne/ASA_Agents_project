@@ -272,13 +272,13 @@ class Intentions{
             if (path.length==0){
                 return true;
             }
-            if(current.action=="pick up"){
-                let parcel=this.beliefs.getParcelBeliefs().getParcelFromId(current.args[0])
-                if(!parcel.carriedBy)
-                    return false;
-                else
-                    return true;
-            }
+            // if(current.action=="pick up"){
+            //     let parcel=this.beliefs.getParcelBeliefs().getParcelFromId(current.args[0])
+            //     if(!parcel.carriedBy)
+            //         return false;
+            //     else
+            //         return true;
+            // }
             if(current.action=="put down"){
                 let delivery_zones=this.beliefs.city.getDeliverySpots()
                 for(let zone of delivery_zones){

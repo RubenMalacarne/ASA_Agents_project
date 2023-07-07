@@ -1,9 +1,12 @@
 import { City_Map } from "../../0_Common_Files/citymap.js"
-import { isObjEmpty } from "../../0_Common_Files/metrics.js"
+import { isObjEmpty, manhattan_distance } from "../../0_Common_Files/metrics.js"
 import { Synchronous_Agents_DataBase } from "./synchAgentDB.js"
 import { Synchronous_Parcels_DataBase } from "./synchParcelDB.js"
 import { Friend_Beliefs } from "./FriendBeliefs.js"
 import { Intentions } from "./intentions.js"
+import { AGENTS_VIEW_DISTANCE, PARCEL_VIEW_DISTANCE } from "../../0_Common_Files/constants.js"
+
+const VIEW_DISTANCE = Math.min(PARCEL_VIEW_DISTANCE, AGENTS_VIEW_DISTANCE);
 
 class Beliefs{
     /**
@@ -131,6 +134,13 @@ class Beliefs{
         this.my_data.x=Math.round(me.x)
         this.my_data.y=Math.round(me.y)
         this.my_data.score=me.score
+        // update exploration spots last seen property
+        let now = new Date().getTime();
+        for(let [id,spot] of this.exploration_spots){
+            if(manhattan_distance(spot,this.my_data)<VIEW_DISTANCE){
+                spot.last_seen = now;
+            }
+        }
     }
 
     /**
@@ -144,7 +154,15 @@ class Beliefs{
             this.friend_beliefs.set(data.id,new_friend)
         }else{
             let friend=this.friend_beliefs.get(data.id)
-            friend.on_update(data)
+            friend.on_update(data);
+            // If a friend explores an exploration spot it is good to update its last seen 
+            // since I get the data about my frineds beliefs and so I know what is in the spot
+            let now = new Date().getTime();
+            for(let [id,spot] of this.exploration_spots){
+                if(manhattan_distance(spot,data)<VIEW_DISTANCE){
+                    spot.last_seen = now;
+                }
+            }
         }
     }
 
@@ -194,6 +212,7 @@ class Beliefs{
      */
     // the agent believes these are the spots it needs to reach in order to explore the map
     load_exploration_spots(){
+        let now=new Date().getTime();
         this.exploration_spots.set("center",this.city.findClosestSpotFromCenter(Math.trunc(this.city.getWidth() /2),Math.trunc(this.city.getHeight() /2)));
         this.exploration_spots.set("n",this.city.findClosestSpotFromCenter(Math.trunc(this.city.getWidth() /2),Math.trunc(this.city.getHeight() *3/4)));
         this.exploration_spots.set("s",this.city.findClosestSpotFromCenter(Math.trunc(this.city.getWidth() /2),Math.trunc(this.city.getHeight() /4)));
@@ -219,6 +238,8 @@ class Beliefs{
         this.exploration_spots.set("10",this.city.findClosestSpotFromCenter(Math.trunc(this.city.getWidth() /4),0));
         this.exploration_spots.set("20",this.city.findClosestSpotFromCenter(Math.trunc(this.city.getWidth() /2),0));
         this.exploration_spots.set("30",this.city.findClosestSpotFromCenter(Math.trunc(this.city.getWidth() *3/4),0));
+        for(let [id,spot] of this.exploration_spots)
+            spot.last_seen = now;
     }
 
     /**
